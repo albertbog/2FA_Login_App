@@ -22,7 +22,7 @@ path = 'mysql+pymysql://root:'+ pw +'@localhost/bemsi_database'
 if not database_exists(path):
      mysql.engine.execute("CREATE DATABASE bemsi_database")
      mysql.engine.execute("USE bemsi_database")
-     mysql.engine.execute("CREATE TABLE users(email varchar(40), username varchar(20), password varchar(40))")
+     mysql.engine.execute("CREATE TABLE users(email varchar(120), username varchar(20), password_hash varchar(200))")
 else:
     mysql.engine.execute("USE bemsi_database")   
 migrate = Migrate(app,mysql)
@@ -63,15 +63,10 @@ def register():
         user = Users.query.filter_by(email=form.email.data).first()
         if user is None:
         
-            hashed_pass = generate_password_hash(form.password.data, "sha256")
             user = Users(username = form.username.data, email = form.email.data, password = form.password.data)
             mysql.session.add(user)
             mysql.session.commit()
-            #OR
-            # cur = mysql.connection.cursor()
-            # cur.execute("INSERT INTO users(name,password) VALUES(%s, %s)", (username,password))
-            # mysql.connection.commit()
-            # cur.close()
+
             
             form.username.data = ''
             form.password.data = ''
@@ -80,7 +75,9 @@ def register():
 
             flash(f'Account created!', 'success')
             return redirect(url_for('home'))
-    flash('Registration unsuccessful')
+        else: 
+            flash(f'Error (maybe this account already exists)!', 'danger')
+   
     return render_template('register.html', title='Register', form=form)
 
 
@@ -88,13 +85,18 @@ def register():
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        if form.email.data == 'jerzy@pofa.com' and form.password.data == '12lat':
-            flash('You have been logged in!', 'success')
-            return redirect(url_for('home'))
+        user = Users.query.filter_by(email=form.email.data).first()
+        print(len(user.password_hash))
+        if user:
+            val = check_password_hash(user.password_hash,form.password.data)
+            if val:
+                flash('You have been logged in!', 'success')
+                return redirect(url_for('home'))
+            else:
+                flash('Login Unsuccessful. Please check username and password', 'danger')
         else:
             flash('Login Unsuccessful. Please check username and password', 'danger')
     return render_template('login.html', title='Login', form=form)
-
 
 
 
@@ -111,19 +113,16 @@ def users():
 class Users(mysql.Model):
     email = mysql.Column(mysql.String(120), nullable=False, unique=True, primary_key = True)
     username = mysql.Column(mysql.String(20), nullable=False, unique=True)
-    password = mysql.Column(mysql.String(128),nullable=False)
+    password_hash = mysql.Column(mysql.String(200),nullable=False)
 
 
-    # @property
-    # def password(self):
-    #     raise AttributeError('password is not a readable attribute!')
+    @property
+    def password(self):
+         raise AttributeError('password is not a readable attribute!')
 
-    # # @password.setter
-    # # def password(self, pw):
-    # #     self.password = generate_password_hash(pw)
-
-    # def verify_password(self, password):
-    #     return check_password_hash(self.password, password)
+    @password.setter
+    def password(self, pw):
+        self.password_hash = generate_password_hash(pw,"sha256")
 
 
 
