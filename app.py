@@ -13,7 +13,7 @@ from sqlalchemy_utils.functions import database_exists
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = '5791628bb0b13ce0c676dfde280ba245'
-pw = 'Password123' #getpass.getpass("Password: ")
+pw = getpass.getpass("Password: ")
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:'+ pw +'@localhost'
 mysql = SQLAlchemy(app)
@@ -86,10 +86,8 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = Users.query.filter_by(email=form.email.data).first()
-        print(len(user.password_hash))
         if user:
-            val = check_password_hash(user.password_hash,form.password.data)
-            if val:
+            if check_password_hash(user.password_hash,form.password.data):
                 flash('You have been logged in!', 'success')
                 return redirect(url_for('home'))
             else:
