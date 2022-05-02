@@ -1,4 +1,5 @@
-from flask import Flask, render_template, url_for, flash, redirect
+import pyotp
+from flask import Flask, render_template, url_for, flash, redirect, request
 from flask_sqlalchemy import SQLAlchemy
 
 from flask_migrate import Migrate
@@ -22,7 +23,7 @@ path = 'mysql+pymysql://root:'+ pw +'@localhost/bemsi_database'
 if not database_exists(path):
      mysql.engine.execute("CREATE DATABASE bemsi_database")
      mysql.engine.execute("USE bemsi_database")
-     mysql.engine.execute("CREATE TABLE users(email varchar(120), username varchar(20), password_hash varchar(200))")
+     mysql.engine.execute("CREATE TABLE users(email varchar(120), username varchar(20), password_hash varchar(200), otp_secret varchar(200))")
 else:
     mysql.engine.execute("USE bemsi_database")   
 migrate = Migrate(app,mysql)
@@ -63,18 +64,19 @@ def register():
         user = Users.query.filter_by(email=form.email.data).first()
         if user is None:
         
-            user = Users(username = form.username.data, email = form.email.data, password = form.password.data)
-            mysql.session.add(user)
-            mysql.session.commit()
+            user = Users(username = form.username.data, email = form.email.data, password = form.password.data, otp_secret='')
 
-            
             form.username.data = ''
             form.password.data = ''
             form.confirm_password.data = ''
             form.email.data = ''
 
             flash(f'Account created!', 'success')
-            return redirect(url_for('home'))
+            secret = pyotp.random_base32()
+            flash(f'Your secret token is:{secret}')
+            user.otp_secret=secret
+            mysql.session.add(user)
+            mysql.session.commit()
         else: 
             flash(f'Error (maybe this account already exists)!', 'danger')
    
@@ -105,14 +107,39 @@ def users():
     return render_template("users.html", userDetails=result)
 
    
+# 2FA page route
+@app.route("/login/2fa/")
+def generate_secret_2fa():
+    form = LoginForm()
 
+    secret = pyotp.random_base32()
+    return render_template("login_2fa.html", secret=secret, form=form)
+
+
+# 2FA form route
+@app.route("/login/2fa/", methods=["POST"])
+def login_2fa_form():
+    # getting secret key used by user
+    secret = request.form.get("secret")
+    # getting OTP provided by user
+    otp = int(request.form.get("otp"))
+
+    # verifying submitted OTP with PyOTP
+    if pyotp.TOTP(secret).verify(otp):
+        # inform users if OTP is valid
+        flash("The TOTP 2FA token is valid", "success")
+        return redirect(url_for("login_2fa"))
+    else:
+        # inform users if OTP is invalid
+        flash("You have supplied an invalid 2FA token!", "danger")
+        return redirect(url_for("login_2fa"))
 
 
 class Users(mysql.Model):
     email = mysql.Column(mysql.String(120), nullable=False, unique=True, primary_key = True)
     username = mysql.Column(mysql.String(20), nullable=False, unique=True)
     password_hash = mysql.Column(mysql.String(200),nullable=False)
-
+    otp_secret = mysql.Column(mysql.String(200), nullable=False)
 
     @property
     def password(self):
