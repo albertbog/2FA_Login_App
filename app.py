@@ -87,10 +87,10 @@ def login():
                 flash('Please enter code from second factor', 'success')
                 res = redirect(url_for("login_2fa_form"))
 
-                cookie_value=pyotp.random_base32()
+                cookie_value = pyotp.random_base32()
                 user.sec_factor_cookie = cookie_value
                 mysql.session.commit()
-                res.set_cookie('token',value=cookie_value, samesite='Lax')
+                res.set_cookie('token', value=cookie_value, secure=True)
                 return res
             else:
                 flash('Login Unsuccessful. Please check username and password', 'danger')
@@ -121,7 +121,7 @@ def login_2fa_form():
     # getting secret key used by user
     cookie = request.cookies.get('token')
     user = Users.query.filter_by(sec_factor_cookie=cookie).first()
-    secret=user.otp_secret
+    secret = user.otp_secret
     # getting OTP provided by user
     otp = int(request.form.get("otp"))
 
@@ -157,7 +157,8 @@ class Users(mysql.Model):
 
     @mail.setter
     def mail(self, pw):
-        self.email = pw+'1'
+        self.email = pw + '1'
+
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(ssl_context=('cert.pem', 'key.pem'))
