@@ -90,7 +90,7 @@ def login():
                 cookie_value = pyotp.random_base32()
                 user.sec_factor_cookie = cookie_value
                 mysql.session.commit()
-                res.set_cookie('token', value=cookie_value, secure=True)
+                res.set_cookie('token', value=cookie_value, secure=True, httponly=True, expires=900)
                 return res
             else:
                 flash('Login Unsuccessful. Please check username and password', 'danger')
@@ -129,11 +129,12 @@ def login_2fa_form():
     if pyotp.TOTP(secret).verify(otp):
         # inform users if OTP is valid
         flash("The TOTP 2FA token is valid", "success")
+
         return redirect(url_for("home"))
     else:
         # inform users if OTP is invalid
         flash("You have supplied an invalid 2FA token!", "danger")
-        return redirect(url_for("home"))
+        return redirect(url_for("login_2fa_form"))
 
 
 class Users(mysql.Model):
