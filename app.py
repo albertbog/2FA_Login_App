@@ -67,7 +67,7 @@ def register():
             form.confirm_password.data = ''
             form.email.data = ''
 
-            flash(f'Account created!', 'success')
+            flash(f'Account created! Your GA token is %s' %user.otp_secret, 'success')
 
             mysql.session.add(user)
             mysql.session.commit()
@@ -90,7 +90,7 @@ def login():
                 cookie_value = pyotp.random_base32()
                 user.sec_factor_cookie = cookie_value
                 mysql.session.commit()
-                res.set_cookie('token', value=cookie_value, secure=True, httponly=True, expires=900)
+                res.set_cookie('token', value=cookie_value, secure=True, httponly=True)
                 return res
             else:
                 flash('Login Unsuccessful. Please check username and password', 'danger')
