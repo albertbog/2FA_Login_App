@@ -1,8 +1,11 @@
 import pyotp
-from flask import Flask, render_template, url_for, flash, redirect, request, make_response
+import sqlalchemy.sql
+from flask import Flask, render_template, url_for, flash, redirect, request, make_response, session
 from flask_sqlalchemy import SQLAlchemy
 
+
 from flask_migrate import Migrate
+from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from forms import RegistrationForm, LoginForm
 import getpass
@@ -14,6 +17,9 @@ pw = getpass.getpass("Password: ")
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:' + pw + '@localhost'
 mysql = SQLAlchemy(app)
+
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
 
 path = 'mysql+pymysql://root:' + pw + '@localhost/bemsi_database'
 if not database_exists(path):
@@ -28,13 +34,13 @@ migrate = Migrate(app, mysql)
 posts = [
     {
         'author': 'Jakub Kowalczyk',
-        'title': 'Pierwsza pała',
-        'content': 'Zapodał Jerzy Pofa',
+        'title': 'Student',
+        'content': 'WYsłano z IPhone',
         'date_posted': '20 Grudnia, 2021'
     },
     {
         'author': 'Jerzy Pofa',
-        'title': 'Należało się',
+        'title': 'Student',
         'content': 'Wysłano z Samsung smart fridge',
         'date_posted': '21 Grudnia, 2021'
     }
@@ -54,6 +60,8 @@ def about():
 
 @app.route("/register", methods=['GET', 'POST'])
 def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
     form = RegistrationForm()
     if form.validate_on_submit():
         user = Users.query.filter_by(email=form.email.data).first()
@@ -79,14 +87,19 @@ def register():
 
 @app.route("/login", methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
     form = LoginForm()
     if form.validate_on_submit():
         user = Users.query.filter_by(email=form.email.data).first()
         if user:
             if check_password_hash(user.password_hash, form.password.data):
+                login_user(user, remember=form.remember.data)
                 flash('Please enter code from second factor', 'success')
                 res = redirect(url_for("login_2fa_form"))
 
+                if request.method == "POST":
+                    session["EMAIL"]=request.form.get("email")
                 cookie_value = pyotp.random_base32()
                 user.sec_factor_cookie = cookie_value
                 mysql.session.commit()
@@ -104,6 +117,24 @@ def login():
 def users():
     result = mysql.engine.execute("SELECT * FROM users")
     return render_template("users.html", userDetails=result)
+
+@app.route('/profile')
+@login_required
+def profile():
+    if session.get("EMAIL", None) is not None:
+        email = session.get("EMAIL")
+        s = sqlalchemy.sql.text("SELECT * FROM users WHERE users.email = :e")
+        result = mysql.engine.execute(s, e=email).fetchall()
+        return render_template("profile.html", title='Profile', userDetails=result)
+    else:
+        print("username not found in session")
+        return redirect(url_for("login"))
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    session.pop("EMAIL", None)
+    return redirect(url_for("home"))
 
 
 # 2FA page route
@@ -129,15 +160,17 @@ def login_2fa_form():
     if pyotp.TOTP(secret).verify(otp):
         # inform users if OTP is valid
         flash("The TOTP 2FA token is valid", "success")
-
-        return redirect(url_for("home"))
+        return redirect(url_for("profile"))
     else:
         # inform users if OTP is invalid
         flash("You have supplied an invalid 2FA token!", "danger")
         return redirect(url_for("login_2fa_form"))
 
+@login_manager.user_loader
+def load_user(user_id):
+    return Users.query.get(int(user_id))
 
-class Users(mysql.Model):
+class Users(mysql.Model, UserMixin):
     email = mysql.Column(mysql.String(120), nullable=False, unique=True, primary_key=True)
     username = mysql.Column(mysql.String(20), nullable=False, unique=True)
     password_hash = mysql.Column(mysql.String(200), nullable=False)
