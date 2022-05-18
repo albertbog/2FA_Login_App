@@ -1,4 +1,5 @@
 import pyotp
+import uuid
 import sqlalchemy.sql
 from flask import Flask, render_template, url_for, flash, redirect, request, make_response, session
 from flask_sqlalchemy import SQLAlchemy
@@ -26,7 +27,7 @@ if not database_exists(path):
     mysql.engine.execute("CREATE DATABASE bemsi_database")
     mysql.engine.execute("USE bemsi_database")
     mysql.engine.execute(
-        "CREATE TABLE users(email varchar(120), username varchar(20), password_hash varchar(200), otp_secret varchar(200), sec_factor_cookie varchar(200))")
+        "CREATE TABLE users(id varchar(120) PRIMARY KEY, email varchar(120), username varchar(20), password_hash varchar(200), otp_secret varchar(200), sec_factor_cookie varchar(200))")
 else:
     mysql.engine.execute("USE bemsi_database")
 migrate = Migrate(app, mysql)
@@ -68,7 +69,8 @@ def register():
 
         if user is None:
             secret = pyotp.random_base32()
-            user = Users(username=form.username.data, email=form.email.data, password=form.password.data,
+            new_id = uuid.uuid4().int
+            user = Users(id = new_id, username=form.username.data, email=form.email.data, password=form.password.data,
                          otp_secret=secret, sec_factor_cookie="")
             form.username.data = ''
             form.password.data = ''
@@ -171,7 +173,8 @@ def load_user(user_id):
     return Users.query.get(int(user_id))
 
 class Users(mysql.Model, UserMixin):
-    email = mysql.Column(mysql.String(120), nullable=False, unique=True, primary_key=True)
+    id = mysql.Column(mysql.String(120), nullable=False, unique=True, primary_key=True)
+    email = mysql.Column(mysql.String(120), nullable=False, unique=True)
     username = mysql.Column(mysql.String(20), nullable=False, unique=True)
     password_hash = mysql.Column(mysql.String(200), nullable=False)
     otp_secret = mysql.Column(mysql.String(200), nullable=False)
