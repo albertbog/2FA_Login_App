@@ -96,12 +96,9 @@ def login():
         user = Users.query.filter_by(email=form.email.data).first()
         if user:
             if check_password_hash(user.password_hash, form.password.data):
-                login_user(user, remember=form.remember.data)
+
                 flash('Please enter code from second factor', 'success')
                 res = redirect(url_for("login_2fa_form"))
-
-                if request.method == "POST":
-                    session["EMAIL"]=request.form.get("email")
                 cookie_value = pyotp.random_base32()
                 user.sec_factor_cookie = cookie_value
                 mysql.session.commit()
@@ -162,6 +159,7 @@ def login_2fa_form():
     if pyotp.TOTP(secret).verify(otp):
         # inform users if OTP is valid
         flash("The TOTP 2FA token is valid", "success")
+        login_user(user)
         return redirect(url_for("profile"))
     else:
         # inform users if OTP is invalid
@@ -179,6 +177,8 @@ class Users(mysql.Model, UserMixin):
     password_hash = mysql.Column(mysql.String(200), nullable=False)
     otp_secret = mysql.Column(mysql.String(200), nullable=False)
     sec_factor_cookie = mysql.Column(mysql.String(200), nullable=False)
+    #id = mysql.Column(mysql.String(200), nullable=False, unique=True)
+
 
     @property
     def password(self):
@@ -188,13 +188,7 @@ class Users(mysql.Model, UserMixin):
     def password(self, pw):
         self.password_hash = generate_password_hash(pw, "sha256")
 
-    @property
-    def mail(self):
-        raise AttributeError('email is not a readable attribute!')
 
-    @mail.setter
-    def mail(self, pw):
-        self.email = pw + '1'
 
 
 if __name__ == '__main__':
