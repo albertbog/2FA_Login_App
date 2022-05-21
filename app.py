@@ -135,7 +135,7 @@ def profile():
 @app.route('/logout')
 def logout():
     logout_user()
-    session.pop("EMAIL", None)
+    session.pop("_user_id", None)
     return redirect(url_for("home"))
 
 
