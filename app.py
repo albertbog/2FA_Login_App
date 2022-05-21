@@ -122,7 +122,6 @@ def users():
 @login_required
 def profile():
     if session.get("_user_id", None) is not None:
-        print("znaleziono ciastko")
         id = session.get("_user_id")
         s = sqlalchemy.sql.text("SELECT * FROM users WHERE users.id = :e")
         result = mysql.engine.execute(s, e=id).fetchall()
