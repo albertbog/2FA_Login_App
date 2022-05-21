@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% block content %}
+    {% for user in userDetails %}
+          <div class="media-body">
+            <div class="article-metadata">
+              <a class="mr-2" href="#">{{ user[1] }}</a>
+              <small class="text-muted">{{ user[0] }}</small>
+            </div>
+          </div>
+    {% endfor %}
+{% endblock content %}
