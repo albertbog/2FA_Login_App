@@ -114,17 +114,20 @@ def login():
 
 @app.route('/users')
 def users():
+    mysql.engine.execute("USE bemsi_database")
     result = mysql.engine.execute("SELECT * FROM users")
     return render_template("users.html", userDetails=result)
 
 @app.route('/profile')
 @login_required
 def profile():
-    if session.get("EMAIL", None) is not None:
-        email = session.get("EMAIL")
-        s = sqlalchemy.sql.text("SELECT * FROM users WHERE users.email = :e")
-        result = mysql.engine.execute(s, e=email).fetchall()
+    if session.get("_user_id", None) is not None:
+        print("znaleziono ciastko")
+        id = session.get("_user_id")
+        s = sqlalchemy.sql.text("SELECT * FROM users WHERE users.id = :e")
+        result = mysql.engine.execute(s, e=id).fetchall()
         return render_template("profile.html", title='Profile', userDetails=result)
+        mysql.engine.execute("USE bemsi_database")
     else:
         print("username not found in session")
         return redirect(url_for("login"))
@@ -160,6 +163,7 @@ def login_2fa_form():
         # inform users if OTP is valid
         flash("The TOTP 2FA token is valid", "success")
         login_user(user)
+        mysql.engine.execute("USE bemsi_database")
         return redirect(url_for("profile"))
     else:
         # inform users if OTP is invalid
