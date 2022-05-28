@@ -102,7 +102,7 @@ def login():
                 cookie_value = pyotp.random_base32()
                 user.sec_factor_cookie = cookie_value
                 mysql.session.commit()
-                res.set_cookie('token', value=cookie_value, secure=True, httponly=True)
+                res.set_cookie('token', value=cookie_value, secure=True, httponly=True, max_age=300)
                 return res
             else:
                 flash('Login Unsuccessful. Please check username and password', 'danger')
@@ -112,11 +112,6 @@ def login():
     return render_template('login.html', title='Login', form=form)
 
 
-@app.route('/users')
-def users():
-    mysql.engine.execute("USE bemsi_database")
-    result = mysql.engine.execute("SELECT * FROM users")
-    return render_template("users.html", userDetails=result)
 
 @app.route('/profile')
 @login_required
@@ -128,7 +123,6 @@ def profile():
         return render_template("profile.html", title='Profile', userDetails=result)
         mysql.engine.execute("USE bemsi_database")
     else:
-        print("username not found in session")
         return redirect(url_for("login"))
 
 @app.route('/logout')
@@ -153,6 +147,11 @@ def login_2fa_form():
     # getting secret key used by user
     cookie = request.cookies.get('token')
     user = Users.query.filter_by(sec_factor_cookie=cookie).first()
+
+
+    if user is None:
+        flash("Login error!")
+        return redirect(url_for("login"))
     secret = user.otp_secret
     # getting OTP provided by user
     otp = int(request.form.get("otp"))
