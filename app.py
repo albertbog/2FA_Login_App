@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pyotp
 import uuid
 import sqlalchemy.sql
@@ -102,7 +104,7 @@ def login():
                 cookie_value = pyotp.random_base32()
                 user.sec_factor_cookie = cookie_value
                 mysql.session.commit()
-                res.set_cookie('token', value=cookie_value, secure=True, httponly=True)
+                res.set_cookie('token', value=cookie_value, secure=True, httponly=True, max_age=300)
                 return res
             else:
                 flash('Login Unsuccessful. Please check username and password', 'danger')
@@ -112,23 +114,18 @@ def login():
     return render_template('login.html', title='Login', form=form)
 
 
-@app.route('/users')
-def users():
-    mysql.engine.execute("USE bemsi_database")
-    result = mysql.engine.execute("SELECT * FROM users")
-    return render_template("users.html", userDetails=result)
 
 @app.route('/profile')
 @login_required
 def profile():
     if session.get("_user_id", None) is not None:
+        mysql.engine.execute("USE bemsi_database")
         id = session.get("_user_id")
         s = sqlalchemy.sql.text("SELECT * FROM users WHERE users.id = :e")
         result = mysql.engine.execute(s, e=id).fetchall()
         return render_template("profile.html", title='Profile', userDetails=result)
         mysql.engine.execute("USE bemsi_database")
     else:
-        print("username not found in session")
         return redirect(url_for("login"))
 
 @app.route('/logout')
@@ -153,6 +150,11 @@ def login_2fa_form():
     # getting secret key used by user
     cookie = request.cookies.get('token')
     user = Users.query.filter_by(sec_factor_cookie=cookie).first()
+
+
+    if user is None:
+        flash("Login error!")
+        return redirect(url_for("login"))
     secret = user.otp_secret
     # getting OTP provided by user
     otp = int(request.form.get("otp"))
@@ -163,11 +165,25 @@ def login_2fa_form():
         flash("The TOTP 2FA token is valid", "success")
         login_user(user)
         mysql.engine.execute("USE bemsi_database")
-        return redirect(url_for("profile"))
+
+
+        req = redirect(url_for("profile"))
+        req.delete_cookie("token")
+        s = sqlalchemy.sql.text(
+            "UPDATE users SET users.sec_factor_cookie = '' WHERE users.otp_secret = ':e'")
+        mysql.engine.execute(s, e=otp)
+        mysql.engine.execute("USE bemsi_database")
+
+        return req
     else:
         # inform users if OTP is invalid
         flash("You have supplied an invalid 2FA token!", "danger")
         return redirect(url_for("login_2fa_form"))
+
+@app.before_request
+def make_session_pernament():
+    session.permanent=True
+    app.permanent_session_lifetime = timedelta(minutes=15)
 
 @login_manager.user_loader
 def load_user(user_id):
