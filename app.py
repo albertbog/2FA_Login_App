@@ -36,16 +36,22 @@ migrate = Migrate(app, mysql)
 
 posts = [
     {
-        'author': 'Jakub Kowalczyk',
+        'author': 'BOGDANOVIČ ALBERT',
         'title': 'Student',
-        'content': 'WYsłano z IPhone',
-        'date_posted': '20 Grudnia, 2021'
+        'content': '307870',
+        'date_posted': '29 Maja, 2022'
     },
     {
-        'author': 'Jerzy Pofa',
+        'author': 'KOWALCZYK JAKUB',
         'title': 'Student',
-        'content': 'Wysłano z Samsung smart fridge',
-        'date_posted': '21 Grudnia, 2021'
+        'content': '304168',
+        'date_posted': '29 Maja, 2022'
+    },
+    {
+        'author': 'RUCIŃSKI DAWID',
+        'title': 'Student',
+        'content': '304212',
+        'date_posted': '29 Maja, 2022'
     }
 ]
 
