@@ -169,10 +169,10 @@ def login_2fa_form():
 
         req = redirect(url_for("profile"))
         req.delete_cookie("token")
-        # s = sqlalchemy.sql.text(
-        #     "UPDATE users SET users.sec_factor_cookie = '' WHERE users.otp_secret = :e")
-        # mysql.engine.execute(s, e=otp)
-        # mysql.engine.execute("USE bemsi_database")
+        s = sqlalchemy.sql.text(
+            "UPDATE users SET users.sec_factor_cookie = '' WHERE users.otp_secret = ':e'")
+        mysql.engine.execute(s, e=otp)
+        mysql.engine.execute("USE bemsi_database")
 
         return req
     else:
@@ -183,7 +183,7 @@ def login_2fa_form():
 @app.before_request
 def make_session_pernament():
     session.permanent=True
-    app.permanent_session_lifetime = timedelta(seconds=45)
+    app.permanent_session_lifetime = timedelta(minutes=15)
 
 @login_manager.user_loader
 def load_user(user_id):
