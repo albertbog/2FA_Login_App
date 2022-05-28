@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pyotp
 import uuid
 import sqlalchemy.sql
@@ -117,6 +119,7 @@ def login():
 @login_required
 def profile():
     if session.get("_user_id", None) is not None:
+        mysql.engine.execute("USE bemsi_database")
         id = session.get("_user_id")
         s = sqlalchemy.sql.text("SELECT * FROM users WHERE users.id = :e")
         result = mysql.engine.execute(s, e=id).fetchall()
@@ -162,11 +165,25 @@ def login_2fa_form():
         flash("The TOTP 2FA token is valid", "success")
         login_user(user)
         mysql.engine.execute("USE bemsi_database")
-        return redirect(url_for("profile"))
+
+
+        req = redirect(url_for("profile"))
+        req.delete_cookie("token")
+        # s = sqlalchemy.sql.text(
+        #     "UPDATE users SET users.sec_factor_cookie = '' WHERE users.otp_secret = :e")
+        # mysql.engine.execute(s, e=otp)
+        # mysql.engine.execute("USE bemsi_database")
+
+        return req
     else:
         # inform users if OTP is invalid
         flash("You have supplied an invalid 2FA token!", "danger")
         return redirect(url_for("login_2fa_form"))
+
+@app.before_request
+def make_session_pernament():
+    session.permanent=True
+    app.permanent_session_lifetime = timedelta(seconds=45)
 
 @login_manager.user_loader
 def load_user(user_id):
